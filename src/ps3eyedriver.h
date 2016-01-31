@@ -72,6 +72,12 @@ int
 ps3eye_count_connected();
 
 /**
+* Return the unique ID of the cam_id
+**/
+unsigned short
+ps3eye_get_device_id(int id);
+
+/**
  * Open a PSEye camera device by id.
  * The id is zero-based, and must be smaller than the count.
  * width and height should usually be 640x480 or 320x240

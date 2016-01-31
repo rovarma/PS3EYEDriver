@@ -1015,6 +1015,23 @@ void PS3EYECam::stop()
     is_streaming = false;
 }
 
+uint16_t PS3EYECam::getDeviceID()
+{
+	struct libusb_device_descriptor desc;
+	libusb_get_device_descriptor(device_, &desc);
+
+	const uint16_t DEVICE_ID_MASK		= 0x8000;
+	const uint16_t INVALID_DEVICE_ID	= 0xFFFF;
+
+	uint16_t result = INVALID_DEVICE_ID;
+	if ((desc.bcdDevice & DEVICE_ID_MASK) != 0)
+	{
+		result = desc.bcdDevice & (~DEVICE_ID_MASK);
+	}
+
+	return result;
+}
+
 uint8_t* PS3EYECam::getFrame()
 {
 	return urb->frame_queue->Dequeue();

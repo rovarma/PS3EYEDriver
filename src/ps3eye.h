@@ -41,6 +41,8 @@ public:
 	void start();
 	void stop();
 
+	uint16_t getDeviceID();
+
 	// Controls
 
 	bool getAutogain() const { return autogain; }

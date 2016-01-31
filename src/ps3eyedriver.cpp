@@ -145,6 +145,21 @@ ps3eye_count_connected()
     return (int)ps3eye_context->devices.size();
 }
 
+unsigned short
+ps3eye_get_device_id(int id)
+{
+	if (!ps3eye_context) {
+		// Not init'ed
+		return (unsigned short)(-1);
+	}
+
+	if (id < 0 || id >= ps3eye_count_connected()) {
+		return (unsigned short)(-1);
+	}
+
+	return ps3eye_context->devices[id]->getDeviceID();
+}
+
 ps3eye_t *
 ps3eye_open(int id, int width, int height, int fps)
 {
