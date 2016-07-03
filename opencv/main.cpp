@@ -1,37 +1,8 @@
-/**
- * PS3EYEDriver Simple SDL 2 example, using OpenGL where available.
- * Thomas Perl <m@thp.io>; 2014-01-10
- * Joseph Howse <josephhowse@nummist.com>; 2014-12-26
- **/
 #include <chrono>
 #include <ctime>
 #include "ps3eye.h"
 #include "opencv2/core.hpp"
 #include "opencv2/highgui.hpp"
-#include "opencv2/calib3d.hpp"
-
-/*
-#define WIN32_LEAN_AND_MEAN
-#include "windows.h"
-
-double gGetTimeSeconds()
-{
-	static bool sInitialized = false;
-	static double PCFreq = 0.0f;
-	if (!sInitialized)
-	{
-		LARGE_INTEGER freq;
-		QueryPerformanceFrequency(&freq);
-
-		PCFreq = double(freq.QuadPart);
-	}
-
-	LARGE_INTEGER freq;
-	QueryPerformanceCounter(&freq);
-	return freq.QuadPart / PCFreq;
-    
-}
- */
 
 struct ps3eye_context {
     ps3eye_context(int width, int height, int fps) :
@@ -77,14 +48,12 @@ void run_camera(int width, int height, int fps, bool show_output, double duratio
 	IplImage* bayer_image = cvCreateImage(cvSize(ctx.eye->getWidth(), ctx.eye->getHeight()), IPL_DEPTH_8U, 1);
 	IplImage* rgb_image = cvCreateImage(cvSize(ctx.eye->getWidth(), ctx.eye->getHeight()), IPL_DEPTH_8U, 4);
 
-//    double start_time = gGetTimeSeconds();
     std::chrono::time_point<std::chrono::high_resolution_clock> start_time = std::chrono::high_resolution_clock::now();
 	while (ctx.running)
 	{
 		uint8_t* new_pixels = ctx.eye->getFrame();
 
 		{
-//			double now_time = gGetTimeSeconds();
             std::chrono::time_point<std::chrono::high_resolution_clock> now_time = std::chrono::high_resolution_clock::now();
 
 			ctx.last_frames++;
@@ -124,7 +93,7 @@ void run_camera(int width, int height, int fps, bool show_output, double duratio
 
 void run_fps_test()
 {
-	int rates_qvga[] = { /*15, 20, 30, 40, 50, 60,*/ 75, 90, 100, 125, 137, 150, 187 };
+	int rates_qvga[] = { 15, 20, 30, 40, 50, 60, 75, 90, 100, 125, 137, 150, 187 };
 	int num_rates_qvga = sizeof(rates_qvga) / sizeof(int);
 
 	int rates_vga[] = { 15, 20, 30, 40, 50, 60, 75 };
