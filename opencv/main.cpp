@@ -1,34 +1,33 @@
-#include <chrono>
-#include <ctime>
+#include <iostream>
 #include "ps3eye.h"
 #include "opencv2/core.hpp"
 #include "opencv2/highgui.hpp"
 
 struct ps3eye_context {
-    ps3eye_context(int width, int height, int fps) :
-          eye(0)
-        , devices(ps3eye::PS3EYECam::getDevices())
-        , running(true)
-        , last_frames(0)
-    {
-        last_time = std::chrono::high_resolution_clock::now();
-        if (hasDevices()) {
-            eye = devices[0];
-            eye->init(width, height, (uint8_t)fps);
-        }
-    }
+	ps3eye_context(int width, int height, int fps) :
+		  eye(0)
+		, devices(ps3eye::PS3EYECam::getDevices())
+		, running(true)
+		, last_time(0)
+		, last_frames(0)
+	{
+		if (hasDevices()) {
+			eye = devices[0];
+			eye->init(width, height, (uint8_t)fps);
+		}
+	}
 
-    bool hasDevices()
-    {
-        return (devices.size() > 0);
-    }
+	bool hasDevices()
+	{
+		return (devices.size() > 0);
+	}
 
-    ps3eye::PS3EYECam::PS3EYERef eye;
-    std::vector<ps3eye::PS3EYECam::PS3EYERef> devices;
+	ps3eye::PS3EYECam::PS3EYERef eye;
+	std::vector<ps3eye::PS3EYECam::PS3EYERef> devices;
 
-    bool running;
-    std::chrono::time_point<std::chrono::high_resolution_clock> last_time;
-    uint32_t last_frames;
+	bool running;
+	double last_time;
+	uint32_t last_frames;
 };
 
 void run_camera(int width, int height, int fps, bool show_output, double duration)
@@ -48,21 +47,21 @@ void run_camera(int width, int height, int fps, bool show_output, double duratio
 	IplImage* bayer_image = cvCreateImage(cvSize(ctx.eye->getWidth(), ctx.eye->getHeight()), IPL_DEPTH_8U, 1);
 	IplImage* rgb_image = cvCreateImage(cvSize(ctx.eye->getWidth(), ctx.eye->getHeight()), IPL_DEPTH_8U, 4);
 
-    std::chrono::time_point<std::chrono::high_resolution_clock> start_time = std::chrono::high_resolution_clock::now();
+	double start_time = cv::getTickCount();
+	ctx.last_time = cv::getTickCount();
 	while (ctx.running)
 	{
 		uint8_t* new_pixels = ctx.eye->getFrame();
 
 		{
-            std::chrono::time_point<std::chrono::high_resolution_clock> now_time = std::chrono::high_resolution_clock::now();
+			double now_time = cv::getTickCount();
 
 			ctx.last_frames++;
 
-            std::chrono::duration<double> elapsed_seconds = now_time-start_time;
-			if (elapsed_seconds.count() > 1.0f)
+			double elapsed_seconds = (now_time-ctx.last_time) / cv::getTickFrequency();
+			if (elapsed_seconds > 1.0f)
 			{
-                std::chrono::duration<double> elapsed_since_last_frame = now_time - ctx.last_time;
-				printf("-> FPS: %.2f\n", ctx.last_frames / (float(elapsed_since_last_frame.count())));
+				printf("-> FPS: %.2f\n", ctx.last_frames / (float(elapsed_seconds)));
 				ctx.last_time = now_time;
 				ctx.last_frames = 0;
 			}
@@ -74,14 +73,14 @@ void run_camera(int width, int height, int fps, bool show_output, double duratio
 			cvCvtColor(bayer_image, rgb_image, CV_BayerGB2BGR);
 
 			//cvShowImage("original", bayer_image);
-			cvShowImage("converted_gb", rgb_image);
+			cvShowImage("converted_rgb", rgb_image);
 		}
 
 		free(new_pixels);
 		
-        std::chrono::time_point<std::chrono::high_resolution_clock> now_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> total_elapsed = now_time-start_time;
-		if ((show_output && cvWaitKey(1) == 27) || (duration != 0.0f && (total_elapsed.count()) >= duration))
+		double now_time = cv::getTickCount();
+		double elapsed_seconds = (now_time-start_time) / cv::getTickFrequency();
+		if ( ((duration != 0.0f) && (elapsed_seconds >= duration)) || (show_output && (cvWaitKey(1) == 27)) )
 			break;
 	}
 
@@ -112,11 +111,23 @@ void run_fps_test()
 int
 main(int argc, char *argv[])
 {
-	// Run mode test
-	//run_fps_test();
+	if (argc > 1)
+	{
+		if (std::string(argv[1]) == "fpstest")
+		{
+			run_fps_test();
+		}
+		else
+		{
+			std::cerr << "Usage: " << argv[0] << " fpstest" << std::endl;
+		}
+	
+	}
+	else
+	{
+		// Run infinitely
+		run_camera(640, 480, 60, true, 0.0f);
+	}
 
-	// Run infinitely
-	run_camera(640, 480, 60, true, 0.0f);
-
-    return EXIT_SUCCESS;
+	return EXIT_SUCCESS;
 }
