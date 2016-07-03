@@ -3,11 +3,14 @@
  * Thomas Perl <m@thp.io>; 2014-01-10
  * Joseph Howse <josephhowse@nummist.com>; 2014-12-26
  **/
+#include <chrono>
+#include <ctime>
 #include "ps3eye.h"
 #include "opencv2/core.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/calib3d.hpp"
 
+/*
 #define WIN32_LEAN_AND_MEAN
 #include "windows.h"
 
@@ -26,17 +29,18 @@ double gGetTimeSeconds()
 	LARGE_INTEGER freq;
 	QueryPerformanceCounter(&freq);
 	return freq.QuadPart / PCFreq;
+    
 }
-
+ */
 
 struct ps3eye_context {
     ps3eye_context(int width, int height, int fps) :
           eye(0)
         , devices(ps3eye::PS3EYECam::getDevices())
         , running(true)
-        , last_time(0)
         , last_frames(0)
     {
+        last_time = std::chrono::high_resolution_clock::now();
         if (hasDevices()) {
             eye = devices[0];
             eye->init(width, height, (uint8_t)fps);
@@ -48,11 +52,11 @@ struct ps3eye_context {
         return (devices.size() > 0);
     }
 
-    std::vector<ps3eye::PS3EYECam::PS3EYERef> devices;
     ps3eye::PS3EYECam::PS3EYERef eye;
+    std::vector<ps3eye::PS3EYECam::PS3EYERef> devices;
 
     bool running;
-    double last_time;
+    std::chrono::time_point<std::chrono::high_resolution_clock> last_time;
     uint32_t last_frames;
 };
 
@@ -73,19 +77,23 @@ void run_camera(int width, int height, int fps, bool show_output, double duratio
 	IplImage* bayer_image = cvCreateImage(cvSize(ctx.eye->getWidth(), ctx.eye->getHeight()), IPL_DEPTH_8U, 1);
 	IplImage* rgb_image = cvCreateImage(cvSize(ctx.eye->getWidth(), ctx.eye->getHeight()), IPL_DEPTH_8U, 4);
 
-	double start_time = gGetTimeSeconds();
+//    double start_time = gGetTimeSeconds();
+    std::chrono::time_point<std::chrono::high_resolution_clock> start_time = std::chrono::high_resolution_clock::now();
 	while (ctx.running)
 	{
 		uint8_t* new_pixels = ctx.eye->getFrame();
 
 		{
-			double now_time = gGetTimeSeconds();
+//			double now_time = gGetTimeSeconds();
+            std::chrono::time_point<std::chrono::high_resolution_clock> now_time = std::chrono::high_resolution_clock::now();
 
 			ctx.last_frames++;
 
-			if (now_time - ctx.last_time > 1.0f)
+            std::chrono::duration<double> elapsed_seconds = now_time-start_time;
+			if (elapsed_seconds.count() > 1.0f)
 			{
-				printf("-> FPS: %.2f\n", ctx.last_frames / (float(now_time - ctx.last_time)));
+                std::chrono::duration<double> elapsed_since_last_frame = now_time - ctx.last_time;
+				printf("-> FPS: %.2f\n", ctx.last_frames / (float(elapsed_since_last_frame.count())));
 				ctx.last_time = now_time;
 				ctx.last_frames = 0;
 			}
@@ -102,7 +110,9 @@ void run_camera(int width, int height, int fps, bool show_output, double duratio
 
 		free(new_pixels);
 		
-		if ((show_output && cvWaitKey(1) == 27) || (duration != 0.0f && (gGetTimeSeconds() - start_time) >= duration))
+        std::chrono::time_point<std::chrono::high_resolution_clock> now_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> total_elapsed = now_time-start_time;
+		if ((show_output && cvWaitKey(1) == 27) || (duration != 0.0f && (total_elapsed.count()) >= duration))
 			break;
 	}
 
