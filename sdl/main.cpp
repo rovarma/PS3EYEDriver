@@ -95,7 +95,7 @@ main(int argc, char *argv[])
     }
 
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1,
-                                                SDL_RENDERER_PRESENTVSYNC);
+                                                SDL_RENDERER_ACCELERATED);
     if (renderer == NULL) {
         printf("Failed to create renderer: %s\n", SDL_GetError());
         SDL_DestroyWindow(window);
