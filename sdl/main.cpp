@@ -3,7 +3,8 @@
  * Thomas Perl <m@thp.io>; 2014-01-10
  * Joseph Howse <josephhowse@nummist.com>; 2014-12-26
  **/
-
+#include <sstream>
+#include <iostream>
 #include <SDL.h>
 #include "ps3eye.h"
 
@@ -45,7 +46,35 @@ print_renderer_info(SDL_Renderer *renderer)
 int
 main(int argc, char *argv[])
 {
-    ps3eye_context ctx(640, 480, 60);
+    int width = 640;
+    int height = 480;
+    int fps = 60;
+    if (argc > 1)
+    {
+        bool good_arg = false;
+        for (int arg_ix = 1; arg_ix < argc; ++arg_ix)
+        {
+            if (std::string(argv[arg_ix]) == "--qvga")
+            {
+                width = 320;
+                height = 240;
+                good_arg = true;
+            }
+            if ((std::string(argv[arg_ix]) == "--fps") && argc > arg_ix)
+            {
+                std::istringstream new_fps_ss( argv[arg_ix+1] );
+                if (new_fps_ss >> fps)
+                {
+                    good_arg = true;
+                }
+            }
+        }
+        if (!good_arg)
+        {
+            std::cerr << "Usage: " << argv[0] << " --fps XX -qvga" << std::endl;
+        }
+    }
+    ps3eye_context ctx(width, height, fps);
     if (!ctx.hasDevices()) {
         printf("No PS3 Eye camera connected\n");
         return EXIT_FAILURE;
@@ -59,7 +88,7 @@ main(int argc, char *argv[])
 
     SDL_Window *window = SDL_CreateWindow(
             "PS3 Eye - SDL 2", SDL_WINDOWPOS_UNDEFINED,
-            SDL_WINDOWPOS_UNDEFINED, 640, 480, 0);
+            SDL_WINDOWPOS_UNDEFINED, width, height, 0);
     if (window == NULL) {
         printf("Failed to create window: %s\n", SDL_GetError());
         return EXIT_FAILURE;
