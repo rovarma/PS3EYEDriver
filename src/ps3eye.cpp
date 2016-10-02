@@ -1058,41 +1058,38 @@ bool PS3EYECam::getUSBPortPath(char *out_identifier, size_t max_identifier_lengt
 {
     bool success = false;
 
-    if (isInitialized())
-    {
-        uint8_t port_numbers[MAX_USB_DEVICE_PORT_PATH];
+	uint8_t port_numbers[MAX_USB_DEVICE_PORT_PATH];
 
-        memset(out_identifier, 0, max_identifier_length);
+	memset(out_identifier, 0, max_identifier_length);
 
-        memset(port_numbers, 0, sizeof(port_numbers));
-        int port_count = libusb_get_port_numbers(device_, port_numbers, MAX_USB_DEVICE_PORT_PATH);
-        int bus_id = libusb_get_bus_number(device_);
+	memset(port_numbers, 0, sizeof(port_numbers));
+	int port_count = libusb_get_port_numbers(device_, port_numbers, MAX_USB_DEVICE_PORT_PATH);
+	int bus_id = libusb_get_bus_number(device_);
 
-        snprintf(out_identifier, max_identifier_length, "b%d", bus_id);
-        if (port_count > 0)
-        {
-            success = true;
+	snprintf(out_identifier, max_identifier_length, "b%d", bus_id);
+	if (port_count > 0)
+	{
+		success = true;
 
-            for (int port_index = 0; port_index < port_count; ++port_index)
-            {
-                uint8_t port_number = port_numbers[port_index];
-                char port_string[8];
+		for (int port_index = 0; port_index < port_count; ++port_index)
+		{
+			uint8_t port_number = port_numbers[port_index];
+			char port_string[8];
 
-                snprintf(port_string, sizeof(port_string), (port_index == 0) ? "_p%d" : ".%d", port_number);
-                port_string[sizeof(port_string) - 1] = '0';
-                
-                if (strlen(out_identifier)+strlen(port_string)+1 <= max_identifier_length)
-                {
-                    std::strcat(out_identifier, port_string);
-                }
-                else
-                {
-                    success = false;
-                    break;
-                }
-            }
-        }
-    }
+			snprintf(port_string, sizeof(port_string), (port_index == 0) ? "_p%d" : ".%d", port_number);
+			port_string[sizeof(port_string) - 1] = '0';
+
+			if (strlen(out_identifier) + strlen(port_string) + 1 <= max_identifier_length)
+			{
+				std::strcat(out_identifier, port_string);
+			}
+			else
+			{
+				success = false;
+				break;
+			}
+		}
+	}
 
     return success;
 }
