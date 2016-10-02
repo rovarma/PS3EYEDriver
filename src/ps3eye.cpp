@@ -64,6 +64,11 @@
 	}
 #endif
 
+#ifdef _MSC_VER
+#pragma warning (disable: 4996) // 'This function or variable may be unsafe': snprintf
+#define snprintf _snprintf
+#endif
+
 namespace ps3eye {
 
 #define TRANSFER_SIZE		65536
@@ -319,10 +324,10 @@ class USBMgr
 std::shared_ptr<USBMgr> USBMgr::sInstance;
 int                     USBMgr::sTotalDevices = 0;
 
-USBMgr::USBMgr() :
-	exit_signaled({ false }),
-	active_camera_count({ 0 })
+USBMgr::USBMgr() 
 {
+	exit_signaled = false;
+	active_camera_count = 0;
     libusb_init(&usb_context);
     libusb_set_debug(usb_context, 1);
 }
@@ -930,7 +935,7 @@ void PS3EYECam::release()
 	if(usb_buf) free(usb_buf);
 }
 
-bool PS3EYECam::init(uint32_t width, uint32_t height, uint8_t desiredFrameRate, EOutputFormat outputFormat)
+bool PS3EYECam::init(uint32_t width, uint32_t height, uint16_t desiredFrameRate, EOutputFormat outputFormat)
 {
 	uint16_t sensor_id;
 
@@ -1047,6 +1052,51 @@ void PS3EYECam::stop()
     is_streaming = false;
 }
 
+#define MAX_USB_DEVICE_PORT_PATH 7
+
+bool PS3EYECam::getUSBPortPath(char *out_identifier, size_t max_identifier_length) const
+{
+    bool success = false;
+
+    if (isInitialized())
+    {
+        uint8_t port_numbers[MAX_USB_DEVICE_PORT_PATH];
+
+        memset(out_identifier, 0, max_identifier_length);
+
+        memset(port_numbers, 0, sizeof(port_numbers));
+        int port_count = libusb_get_port_numbers(device_, port_numbers, MAX_USB_DEVICE_PORT_PATH);
+        int bus_id = libusb_get_bus_number(device_);
+
+        snprintf(out_identifier, max_identifier_length, "b%d", bus_id);
+        if (port_count > 0)
+        {
+            success = true;
+
+            for (int port_index = 0; port_index < port_count; ++port_index)
+            {
+                uint8_t port_number = port_numbers[port_index];
+                char port_string[8];
+
+                snprintf(port_string, sizeof(port_string), (port_index == 0) ? "_p%d" : ".%d", port_number);
+                port_string[sizeof(port_string) - 1] = '0';
+                
+                if (strlen(out_identifier)+strlen(port_string)+1 <= max_identifier_length)
+                {
+                    std::strcat(out_identifier, port_string);
+                }
+                else
+                {
+                    success = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    return success;
+}
+
 uint32_t PS3EYECam::getOutputBytesPerPixel() const
 {
 	if (frame_output_format == EOutputFormat::Bayer)
@@ -1140,40 +1190,55 @@ void PS3EYECam::ov534_set_led(int status)
 }
 
 /* validate frame rate and (if not dry run) set it */
-uint8_t PS3EYECam::ov534_set_frame_rate(uint8_t frame_rate, bool dry_run)
+uint16_t PS3EYECam::ov534_set_frame_rate(uint16_t frame_rate, bool dry_run)
 {
      int i;
      struct rate_s {
-             uint8_t fps;
+             uint16_t fps;
              uint8_t r11;
              uint8_t r0d;
              uint8_t re5;
      };
      const struct rate_s *r;
      static const struct rate_s rate_0[] = { /* 640x480 */
-			 {75, 0x01, 0x81, 0x02},
+             {83, 0x01, 0xc1, 0x02}, /* 83 FPS: video is partly corrupt */
+             {75, 0x01, 0x81, 0x02}, /* 75 FPS or below: video is valid */
              {60, 0x00, 0x41, 0x04},
              {50, 0x01, 0x41, 0x02},
              {40, 0x02, 0xc1, 0x04},
              {30, 0x04, 0x81, 0x02},
-			 {20, 0x04, 0x41, 0x02},
+             {25, 0x00, 0x01, 0x02},
+             {20, 0x04, 0x41, 0x02},
              {15, 0x09, 0x81, 0x02},
+             {10, 0x09, 0x41, 0x02},
+             {8, 0x02, 0x01, 0x02},
+             {5, 0x04, 0x01, 0x02},
+             {3, 0x06, 0x01, 0x02},
+             {2, 0x09, 0x01, 0x02},
      };
      static const struct rate_s rate_1[] = { /* 320x240 */
-             {205, 0x01, 0xc1, 0x02}, /* 205 FPS: video is partly corrupt */
+             {290, 0x00, 0xc1, 0x04},
+             {205, 0x01, 0xc1, 0x02}, /* 205 FPS or above: video is partly corrupt */
              {187, 0x01, 0x81, 0x02}, /* 187 FPS or below: video is valid */
              {150, 0x00, 0x41, 0x04},
              {137, 0x02, 0xc1, 0x02},
              {125, 0x01, 0x41, 0x02},
              {100, 0x02, 0xc1, 0x04},
-			 {90, 0x03, 0x81, 0x02},
+             {90, 0x03, 0x81, 0x02},
              {75, 0x04, 0x81, 0x02},
              {60, 0x04, 0xc1, 0x04},
              {50, 0x04, 0x41, 0x02},
              {40, 0x06, 0x81, 0x03},
+             {37, 0x00, 0x01, 0x04},
              {30, 0x04, 0x41, 0x04},
-			 {20, 0x18, 0xc1, 0x02},
-			 {15, 0x18, 0x81, 0x02},
+             {17, 0x18, 0xc1, 0x02},
+             {15, 0x18, 0x81, 0x02},
+             {12, 0x02, 0x01, 0x04},
+             {10, 0x18, 0x41, 0x02},
+             {7, 0x04, 0x01, 0x04},
+             {5, 0x06, 0x01, 0x04},
+             {3, 0x09, 0x01, 0x04},
+             {2, 0x18, 0x01, 0x02},
      };
 
      if (frame_width == 640) {
