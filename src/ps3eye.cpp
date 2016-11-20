@@ -48,6 +48,23 @@
 		{
 			SetThreadName(GetCurrentThreadId(), thread_name);
 		}
+
+		double gGetTimeSeconds()
+		{
+			static bool sInitialized = false;
+			static double PCFreq = 0.0f;
+			if (!sInitialized)
+			{
+				LARGE_INTEGER freq;
+				QueryPerformanceFrequency(&freq);
+
+				PCFreq = double(freq.QuadPart);
+			}
+
+			LARGE_INTEGER freq;
+			QueryPerformanceCounter(&freq);
+			return freq.QuadPart / PCFreq;
+		}
 	#endif
 
 #else
@@ -448,7 +465,7 @@ public:
 		return frame_buffer;
 	}
 
-	uint8_t* Enqueue()
+	uint8_t* Enqueue(const FrameStatistics& inStats)
 	{
 		uint8_t* new_frame = NULL;
 
@@ -468,6 +485,7 @@ public:
 		// Note: we don't need to copy any data to the buffer since the USB packets are directly written to the frame buffer.
 		// We just need to update head and available count to signal to the consumer that a new frame is available
 		head = (head + 1) % num_frames;
+		frame_statistics = inStats;
 		available++;
 
 		// Determine the next frame pointer that the producer should write to
@@ -479,7 +497,7 @@ public:
 		return new_frame;
 	}
 
-	void Dequeue(uint8_t* new_frame, int frame_width, int frame_height, PS3EYECam::EOutputFormat outputFormat)
+	void Dequeue(uint8_t* new_frame, FrameStatistics& frame_stats, int frame_width, int frame_height, PS3EYECam::EOutputFormat outputFormat)
 	{
 		std::unique_lock<std::mutex> lock(mutex);
 
@@ -488,10 +506,11 @@ public:
 
 		// Copy from internal buffer
 		uint8_t* source = frame_buffer + frame_size * tail;
+		frame_stats = frame_statistics;
 
 		if (outputFormat == PS3EYECam::EOutputFormat::Bayer)
 		{
-		memcpy(new_frame, source, frame_size);
+			memcpy(new_frame, source, frame_size);
 		}
 		else if (outputFormat == PS3EYECam::EOutputFormat::BGR ||
 				 outputFormat == PS3EYECam::EOutputFormat::RGB)
@@ -615,6 +634,7 @@ private:
 	uint32_t				head;
 	uint32_t				tail;
 	uint32_t				available;
+	FrameStatistics			frame_statistics;
 
 	std::mutex				mutex;
 	std::condition_variable	empty_condition;
@@ -626,7 +646,7 @@ class URBDesc
 {
 public:
 	URBDesc() : 
-		num_active_transfers			(0),
+		num_active_transfers	(0),
 		last_packet_type		(DISCARD_PACKET), 
 		last_pts				(0), 
 		last_fid				(0), 
@@ -717,6 +737,9 @@ public:
 	{
 	    if (packet_type == FIRST_PACKET) 
 	    {
+			current_frame_statistics.mFrameStart = gGetTimeSeconds();
+			current_frame_statistics.mFrameNumber = current_frame_statistics.mFrameNumber++;
+			current_frame_statistics.mFrameEnd = 0;
             cur_frame_data_len = 0;
 	    } 
 	    else
@@ -753,7 +776,8 @@ public:
 
 	    if (packet_type == LAST_PACKET) {        
 			cur_frame_data_len = 0;
-			cur_frame_start = frame_queue->Enqueue();
+			current_frame_statistics.mFrameEnd = gGetTimeSeconds();
+			cur_frame_start = frame_queue->Enqueue(current_frame_statistics);
 	        //debug("frame completed %d\n", frame_complete_ind);
 	    }
 	}
@@ -840,6 +864,7 @@ public:
 	uint32_t				last_pts;
 	uint16_t				last_fid;
 	libusb_transfer*		xfr[NUM_TRANSFERS];
+	FrameStatistics			current_frame_statistics;
 
 	uint8_t*				transfer_buffer;
     uint8_t*				cur_frame_start;
@@ -1106,9 +1131,9 @@ uint32_t PS3EYECam::getOutputBytesPerPixel() const
 	return 0;
 }
 
-void PS3EYECam::getFrame(uint8_t* frame)
+void PS3EYECam::getFrame(uint8_t* frame, FrameStatistics& frame_stats)
 {
-	urb->frame_queue->Dequeue(frame, frame_width, frame_height, frame_output_format);
+	urb->frame_queue->Dequeue(frame, frame_stats, frame_width, frame_height, frame_output_format);
 }
 
 uint16_t PS3EYECam::getDeviceID()

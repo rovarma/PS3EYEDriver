@@ -58,6 +58,14 @@ typedef enum{
 } ps3eye_format;
 
 
+struct ps3eye_frame_statistics
+{
+	int					frame_number;
+	double				frame_start;
+	double				frame_end;
+};
+
+
 /**
  * Initialize and enumerate connected cameras.
  * Needs to be called once before all other API functions.
@@ -109,7 +117,7 @@ ps3eye_get_unique_identifier(int id, char *out_identifier, int max_identifier_le
  * will be written to *stride.
  **/
 void
-ps3eye_grab_frame(ps3eye_t *eye, unsigned char* frame);
+ps3eye_grab_frame(ps3eye_t *eye, unsigned char* frame, struct ps3eye_frame_statistics* stats);
 
 /**
  * Close a PSEye camera device and free allocated resources.

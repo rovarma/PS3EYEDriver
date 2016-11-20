@@ -36,6 +36,13 @@
 
 namespace ps3eye {
 
+struct FrameStatistics
+{
+	int					mFrameNumber				= 0;
+	double				mFrameStart					= 0;
+	double				mFrameEnd					= 0;
+};
+
 class PS3EYECam
 {
 public:
@@ -170,7 +177,7 @@ public:
 	// Get a frame from the camera. Notes:
 	// - If there is no frame available, this function will block until one is
 	// - The output buffer must be sized correctly, depending out the output format. See EOutputFormat.
-	void getFrame(uint8_t* frame);
+	void getFrame(uint8_t* frame, FrameStatistics& frame_stats);
 
 	uint32_t getWidth() const { return frame_width; }
 	uint32_t getHeight() const { return frame_height; }

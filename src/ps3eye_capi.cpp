@@ -151,7 +151,7 @@ ps3eye_get_unique_identifier(int id, char *out_identifier, int max_identifier_le
 }
 
 void
-ps3eye_grab_frame(ps3eye_t *eye, unsigned char* frame)
+ps3eye_grab_frame(ps3eye_t *eye, unsigned char* frame, struct ps3eye_frame_statistics* stats)
 {
     if (!ps3eye_context) {
         // No context available
@@ -163,7 +163,15 @@ ps3eye_grab_frame(ps3eye_t *eye, unsigned char* frame)
         return;
     }
 
-	eye->eye->getFrame(frame);
+	ps3eye::FrameStatistics statistics;
+	eye->eye->getFrame(frame, statistics);
+
+	if (stats)
+	{
+		stats->frame_start = statistics.mFrameStart;
+		stats->frame_end = statistics.mFrameEnd;
+		stats->frame_number = statistics.mFrameNumber;
+	}
 }
 
 void
